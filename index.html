@@ -1,0 +1,376 @@
+<!doctype html>
+<html lang="it"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Apiario"><meta name="theme-color" content="#3f6b4a">
+<link rel="manifest" href="manifest.json"><link rel="apple-touch-icon" href="icon-180.png">
+<title>Registro Apiario</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Source+Sans+3:wght@400;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: colonna unica con barra sezioni fissa in alto; arnie come celle esagonali per apiario */
+:root{
+  --bg:#f1f3ef; --surface:#ffffff; --line:#d3d9d1; --fg:#1d261f; --muted:#5e6b61; --field:#f7f8f5;
+  --honey:#d4920f; --honey-ink:#1d261f; --green:#3f6b4a; --danger:#b3412e;
+  --t-fresh:#3f6b4a; --t-ok:#8aa58f; --t-due:#d4920f; --t-never:#c9cfc7;
+  --f-display:"Bricolage Grotesque","Arial",sans-serif;
+  --f-body:"Source Sans 3",system-ui,sans-serif;
+  --f-num:"IBM Plex Mono",ui-monospace,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#141a16; --surface:#1c241e; --line:#334037; --fg:#e7ece6; --muted:#97a69a; --field:#171e19;
+  --honey:#e9a92a; --honey-ink:#141a16; --green:#7fb08b; --danger:#e07a68;
+  --t-fresh:#5f9a6d; --t-ok:#3f5a46; --t-due:#c98c16; --t-never:#2c362f; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#141a16; --surface:#1c241e; --line:#334037; --fg:#e7ece6; --muted:#97a69a; --field:#171e19;
+  --honey:#e9a92a; --honey-ink:#141a16; --green:#7fb08b; --danger:#e07a68;
+  --t-fresh:#5f9a6d; --t-ok:#3f5a46; --t-due:#c98c16; --t-never:#2c362f; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:16px;line-height:1.45}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--surface)}
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--surface);border-bottom:1px solid var(--line)}
+.top-in{max-width:760px;margin:0 auto;padding-block:12px 0;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.brand{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+h1{font-family:var(--f-display);font-weight:800;font-size:24px;margin:0;letter-spacing:-.01em}
+.save{font-size:12px;color:var(--muted)}
+.tabs{display:flex;gap:4px;margin-top:8px}
+.tabs button{flex:1;background:none;border:0;border-bottom:3px solid transparent;padding:10px 4px;font-family:var(--f-display);font-weight:600;font-size:17px;color:var(--muted);cursor:pointer}
+.tabs button[aria-selected="true"]{color:var(--fg);border-bottom-color:var(--honey)}
+.wrap{max-width:760px;margin:0 auto;padding-block:18px 60px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:16px}
+h2{font-family:var(--f-display);font-weight:800;font-size:21px;margin:0}
+h3{font-family:var(--f-display);font-weight:600;font-size:18px;margin:0}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:14px;display:flex;flex-direction:column;gap:12px}
+.muted{color:var(--muted)}
+.small{font-size:13px}
+.row{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.full{grid-column:1/-1}
+label{display:flex;flex-direction:column;gap:4px;min-width:0}
+label>span{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600}
+input,select,textarea{width:100%;min-width:0;font:inherit;font-size:16px;color:var(--fg);background:var(--field);border:1px solid var(--line);border-radius:5px;padding:9px 10px}
+textarea{min-height:64px;resize:vertical}
+input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid var(--honey);outline-offset:1px}
+.btn{background:var(--fg);color:var(--bg);border:0;border-radius:5px;padding:10px 14px;font-family:var(--f-display);font-weight:600;font-size:16px;cursor:pointer}
+.btn.honey{background:var(--honey);color:var(--honey-ink)}
+.btn.ghost{background:transparent;color:var(--fg);border:1px solid var(--line)}
+.btn.danger{background:transparent;color:var(--danger);border:1px solid var(--line)}
+.btn.danger.arm{background:var(--danger);color:#fff;border-color:var(--danger)}
+.btn.sm{padding:6px 10px;font-size:14px}
+.ap-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;cursor:pointer;background:none;border:0;padding:0;text-align:left;color:inherit;font:inherit;width:100%}
+.ap-meta{font-family:var(--f-num);font-size:13px;color:var(--muted)}
+.hives{display:grid;grid-template-columns:repeat(auto-fill,minmax(58px,1fr));gap:6px}
+.hex{aspect-ratio:1/1.1;max-width:100%;clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);border:0;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:var(--f-num);color:#fff;line-height:1.1}
+.hex b{font-size:16px;font-weight:500}
+.hex small{font-size:10px;opacity:.9}
+.hex.fresh{background:var(--t-fresh)}.hex.ok{background:var(--t-ok);color:var(--fg)}.hex.due{background:var(--t-due);color:var(--honey-ink)}.hex.never{background:var(--t-never);color:var(--muted)}
+.hex.sel{outline:3px solid var(--fg);outline-offset:-3px}
+.legend{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:13px;color:var(--muted)}
+.legend i{display:inline-block;width:11px;height:11px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+.panel{border-top:1px dashed var(--line);padding-top:12px;display:flex;flex-direction:column;gap:10px}
+.log{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.log li{display:flex;gap:10px;justify-content:space-between;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--line)}
+.log li:last-child{border-bottom:0}
+.log .d{font-family:var(--f-num);font-size:13px;color:var(--muted);white-space:nowrap}
+.log .t{flex:1;min-width:0;overflow-wrap:anywhere}
+.empty{text-align:left;border:1.5px dashed var(--line);border-radius:8px;padding:18px;display:flex;flex-direction:column;gap:10px;color:var(--muted)}
+.empty b{color:var(--fg);font-family:var(--f-display);font-size:18px}
+.checks{display:grid;grid-template-columns:repeat(auto-fill,minmax(64px,1fr));gap:6px}
+.checks label{flex-direction:row;align-items:center;gap:6px;font-family:var(--f-num);font-size:14px;background:var(--field);border:1px solid var(--line);border-radius:5px;padding:6px}
+.checks input{width:18px;height:18px;accent-color:var(--honey);padding:0}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.stats div{display:flex;flex-direction:column;min-width:0;background:var(--field);border-radius:6px;padding:10px}
+.stats small{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.stats b{font-family:var(--f-num);font-weight:500;font-size:19px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.tbl-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{text-align:left;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600;padding:6px 4px;border-bottom:1px solid var(--line)}
+td{padding:7px 4px;border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums}
+td.n{font-family:var(--f-num);text-align:right;white-space:nowrap}
+.meter{height:8px;background:var(--field);border-radius:4px;overflow:hidden;min-width:60px}
+.meter i{display:block;height:100%;background:var(--honey)}
+.jar{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}
+.jar:last-child{border-bottom:0}
+.qty{display:flex;align-items:center;gap:6px}
+.qty button{width:38px;height:38px;border-radius:50%;border:1px solid var(--line);background:var(--field);color:var(--fg);font-size:20px;cursor:pointer}
+.qty b{font-family:var(--f-num);font-weight:500;font-size:18px;min-width:3ch;text-align:center}
+.pill{display:inline-block;font-size:12px;background:var(--field);border:1px solid var(--line);border-radius:999px;padding:1px 8px;color:var(--muted)}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom,0px));background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:6px;font-size:14px;z-index:20;max-width:calc(100% - 32px)}
+@media (max-width:480px){.grid3{grid-template-columns:1fr 1fr}.grid3 .w{grid-column:1/-1}.stats b{font-size:16px}}
+</style>
+<style>:root{padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}[hidden]{display:none!important}</style>
+</head><body>
+
+<header class="top"><div class="top-in">
+  <div class="brand"><h1>Registro apiario</h1><span class="save" id="save">Caricamento…</span></div>
+  <nav class="tabs" role="tablist">
+    <button role="tab" id="t-arnie" aria-selected="true" data-tab="arnie">Arnie</button>
+    <button role="tab" id="t-raccolti" aria-selected="false" data-tab="raccolti">Raccolti</button>
+    <button role="tab" id="t-vasetti" aria-selected="false" data-tab="vasetti">Vasetti</button>
+  </nav>
+</div></header>
+<main class="wrap" id="main"></main>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+/* ---------- dati ---------- */
+const KINDS=["apiari","visite","raccolti","vasetti"];
+const D={apiari:[],visite:[],raccolti:[],vasetti:[]};
+const ui={tab:"arnie",openAp:null,openHive:null,addAp:false,editAp:null,rAp:"",anno:String(new Date().getFullYear()),posF:""};
+const TIPI=["Acacia","Millefiori","Castagno","Tiglio","Tarassaco","Agrumi","Sulla","Melata","Rododendro","Girasole"];
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const today=()=>{const d=new Date();d.setMinutes(d.getMinutes()-d.getTimezoneOffset());return d.toISOString().slice(0,10)};
+const fmtD=s=>{if(!s)return"";const[y,m,d]=s.split("-");return `${d}/${m}/${y}`};
+const daysSince=s=>Math.floor((new Date(today())-new Date(s))/864e5);
+const n=(x,d=1)=>Number(x||0).toLocaleString("it-IT",{minimumFractionDigits:d,maximumFractionDigits:d});
+const rid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+const $=id=>document.getElementById(id);
+
+/* ---------- archiviazione: account Claude se disponibile, altrimenti questo dispositivo ---------- */
+const Store={mode:"local",cols:{},
+  async init(){
+    if(window.claude&&window.claude.use){
+      try{
+        const [db,user]=await Promise.all([claude.use("db"),claude.use("user")]);
+        const uid=user?await user.id():null;
+        if(db&&uid){
+          const base=db.doc("data/users/"+uid+"/apicoltura");
+          this.mode="db";
+          let pending=KINDS.length;
+          const timer=setTimeout(()=>{if(pending){setSave("Connessione lenta: riprova tra poco");}},10000);
+          KINDS.forEach(k=>{
+            this.cols[k]=base.collection(k);
+            this.cols[k].limit(1000).onSnapshot(s=>{
+              D[k]=s.docs.map(d=>({...d.data(),id:d.id}));
+              if(pending&&--pending===0){clearTimeout(timer);}
+              setSave("Salvato nel tuo account"); render();
+            },e=>{setSave("Errore di salvataggio: "+(e.code==="quota_exceeded"?"spazio esaurito":"riprova"));});
+          });
+          return;
+        }
+      }catch(e){}
+    }
+    this.mode="local";
+    KINDS.forEach(k=>{try{D[k]=JSON.parse(localStorage.getItem("api_"+k)||"[]")}catch(e){D[k]=[]}});
+    setSave("Salvato su questo dispositivo"); render();
+  },
+  persist(k){try{localStorage.setItem("api_"+k,JSON.stringify(D[k]))}catch(e){toast("Non riesco a salvare sul dispositivo.")}},
+  async put(k,obj){
+    obj.id=obj.id||rid();
+    if(this.mode==="db"){const {id,...body}=obj;try{await this.cols[k].doc(id).set(body)}catch(e){toast(e.code==="quota_exceeded"?"Spazio dati esaurito.":"Salvataggio non riuscito, riprova.")}}
+    else{const i=D[k].findIndex(x=>x.id===obj.id);if(i>=0)D[k][i]=obj;else D[k].push(obj);this.persist(k);render();}
+  },
+  async del(k,id){
+    if(this.mode==="db"){try{await this.cols[k].doc(id).delete()}catch(e){toast("Eliminazione non riuscita.")}}
+    else{D[k]=D[k].filter(x=>x.id!==id);this.persist(k);render();}
+  }
+};
+function setSave(t){$("save").textContent=t}
+let tt;function toast(t){const el=$("toast");el.textContent=t;el.hidden=false;clearTimeout(tt);tt=setTimeout(()=>el.hidden=true,2600)}
+
+/* conferma in pagina: primo tocco arma il pulsante, secondo conferma */
+function armed(btn){if(btn.classList.contains("arm"))return true;btn.classList.add("arm");const t=btn.textContent;btn.textContent="Tocca per confermare";setTimeout(()=>{btn.classList.remove("arm");btn.textContent=t},3500);return false}
+
+/* ---------- sezione ARNIE ---------- */
+const hiveVisits=(ap,h)=>D.visite.filter(v=>v.apiario===ap&&v.arnia===h).sort((a,b)=>b.data.localeCompare(a.data));
+function hiveState(ap,h){const v=hiveVisits(ap,h)[0];if(!v)return["never","mai",null];const d=daysSince(v.data);return[d<=7?"fresh":d<=21?"ok":"due",d===0?"oggi":d+" gg",v]}
+
+function viewArnie(){
+  const aps=[...D.apiari].sort((a,b)=>a.nome.localeCompare(b.nome));
+  let h=`<div class="row"><h2>Apiari</h2><button class="btn honey sm" data-act="addAp">+ Nuovo apiario</button></div>`;
+  if(ui.addAp||ui.editAp){
+    const e=D.apiari.find(a=>a.id===ui.editAp)||{};
+    h+=`<form class="card" id="apForm"><h3>${e.id?"Modifica apiario":"Nuovo apiario"}</h3>
+      <div class="grid2"><label class="full"><span>Nome</span><input id="apNome" required value="${esc(e.nome)}" placeholder="es. Apiario del castagneto"></label>
+      <label><span>Località</span><input id="apLuogo" value="${esc(e.luogo)}" placeholder="es. Valbrembo"></label>
+      <label><span>Numero arnie</span><input id="apN" type="number" min="1" max="300" required value="${e.nArnie||10}"></label></div>
+      <div class="row"><button class="btn" type="submit">Salva</button><button class="btn ghost" type="button" data-act="cancelAp">Annulla</button></div></form>`;
+  }
+  if(!aps.length&&!ui.addAp){
+    h+=`<div class="empty"><b>Nessun apiario registrato</b>Aggiungi il tuo primo apiario con il numero di arnie: potrai segnare le visite arnia per arnia e vedere a colpo d'occhio quelle da controllare.
+      <div class="row" style="justify-content:flex-start"><button class="btn honey" data-act="addAp">+ Aggiungi apiario</button><button class="btn ghost" data-act="demo">Prova con dati di esempio</button></div></div>`;
+    return h;
+  }
+  h+=`<div class="legend"><span><i style="background:var(--t-fresh)"></i>visitata da ≤7 giorni</span><span><i style="background:var(--t-ok)"></i>8–21 giorni</span><span><i style="background:var(--t-due)"></i>oltre 21 giorni</span><span><i style="background:var(--t-never)"></i>mai visitata</span></div>`;
+  aps.forEach(a=>{
+    const open=ui.openAp===a.id;
+    const states=[...Array(a.nArnie)].map((_,i)=>hiveState(a.id,i+1));
+    const due=states.filter(s=>s[0]==="due"||s[0]==="never").length;
+    h+=`<section class="card"><button class="ap-head" data-act="toggleAp" data-id="${a.id}" aria-expanded="${open}">
+      <div><h3>${esc(a.nome)}</h3><div class="ap-meta">${esc(a.luogo||"")}${a.luogo?" · ":""}${a.nArnie} arnie</div></div>
+      <span class="pill">${due?due+" da visitare":"tutte in regola"}</span></button>`;
+    if(open){
+      h+=`<div class="hives">${states.map((s,i)=>`<button class="hex ${s[0]} ${ui.openHive===i+1?"sel":""}" data-act="hive" data-n="${i+1}" aria-label="Arnia ${i+1}, ultima visita ${s[1]}"><b>${i+1}</b><small>${s[1]}</small></button>`).join("")}</div>`;
+      if(ui.openHive){
+        const hv=hiveVisits(a.id,ui.openHive);
+        h+=`<div class="panel"><h3>Arnia ${ui.openHive}</h3>
+          <form id="visForm" class="grid2"><label><span>Data visita</span><input id="visData" type="date" value="${today()}" required></label>
+          <label class="full"><span>Nota (facoltativa)</span><textarea id="visNota" placeholder="es. regina vista, 6 telaini di covata, aggiunto melario"></textarea></label>
+          <div class="full"><button class="btn honey" type="submit">Registra visita</button></div></form>
+          ${hv.length?`<ul class="log">${hv.map(v=>`<li><span class="d">${fmtD(v.data)}</span><span class="t">${esc(v.nota)||'<span class="muted">nessuna nota</span>'}</span><button class="btn danger sm" data-act="delVis" data-id="${v.id}">Elimina</button></li>`).join("")}</ul>`:`<p class="muted small" style="margin:0">Nessuna visita registrata per questa arnia.</p>`}
+        </div>`;
+      }else{
+        h+=`<form class="panel" id="visAll"><p class="muted small" style="margin:0">Tocca un'arnia per segnare la visita e vedere lo storico, oppure registra una visita per tutto l'apiario.</p>
+          <div class="grid2"><label><span>Data</span><input id="vaData" type="date" value="${today()}"></label><label><span>Nota per tutte</span><input id="vaNota" placeholder="es. trattamento"></label></div>
+          <div class="row"><button class="btn ghost" type="submit">Visita tutte le ${a.nArnie} arnie</button>
+          <span class="row"><button class="btn ghost sm" type="button" data-act="editAp" data-id="${a.id}">Modifica</button><button class="btn danger sm" type="button" data-act="delAp" data-id="${a.id}">Elimina apiario</button></span></div></form>`;
+      }
+    }
+    h+=`</section>`;
+  });
+  return h;
+}
+
+/* ---------- sezione RACCOLTI ---------- */
+function viewRaccolti(){
+  const aps=[...D.apiari].sort((a,b)=>a.nome.localeCompare(b.nome));
+  let h=`<h2>Raccolti di miele</h2>`;
+  if(!aps.length) return h+`<div class="empty"><b>Prima aggiungi un apiario</b>I raccolti si collegano alle arnie da cui provengono. Vai nella sezione Arnie e registra almeno un apiario.</div>`;
+  const ap=aps.find(a=>a.id===ui.rAp)||aps[0]; ui.rAp=ap.id;
+  h+=`<form class="card" id="racForm"><h3>Nuovo raccolto</h3>
+    <div class="grid3"><label><span>Data</span><input id="rData" type="date" value="${today()}" required></label>
+    <label><span>Tipo di miele</span><input id="rTipo" list="tipiList" required placeholder="Millefiori"></label>
+    <label class="w"><span>Chili</span><input id="rKg" inputmode="decimal" required placeholder="es. 42,5"></label></div>
+    <label><span>Apiario</span><select id="rAp">${aps.map(a=>`<option value="${a.id}"${a.id===ap.id?" selected":""}>${esc(a.nome)}</option>`).join("")}</select></label>
+    <div><div class="row" style="margin-bottom:6px"><span class="small muted">Arnie di provenienza</span><span class="row"><button class="btn ghost sm" type="button" data-act="allHives" data-v="1">Tutte</button><button class="btn ghost sm" type="button" data-act="allHives" data-v="0">Nessuna</button></span></div>
+    <div class="checks">${[...Array(ap.nArnie)].map((_,i)=>`<label><input type="checkbox" class="hchk" id="hc-${i+1}" value="${i+1}" checked>${i+1}</label>`).join("")}</div></div>
+    <p class="small muted" style="margin:0">I chili vengono divisi in parti uguali tra le arnie selezionate per calcolare il rendimento.</p>
+    <button class="btn honey" type="submit">Registra raccolto</button></form>`;
+  const anni=[...new Set(D.raccolti.map(r=>r.data.slice(0,4)).concat([String(new Date().getFullYear())]))].sort().reverse();
+  const R=D.raccolti.filter(r=>r.data.startsWith(ui.anno));
+  const tot=R.reduce((s,r)=>s+r.kg,0);
+  const perHive={}; R.forEach(r=>{const q=r.kg/r.arnie.length;r.arnie.forEach(x=>{const k=r.apiario+"#"+x;perHive[k]=(perHive[k]||0)+q})});
+  const prod=Object.keys(perHive).length;
+  h+=`<section class="card"><div class="row"><h3>Rendimento</h3><select id="anno" style="width:auto">${anni.map(y=>`<option${y===ui.anno?" selected":""}>${y}</option>`).join("")}</select></div>
+    <div class="stats"><div><small>Miele totale</small><b>${n(tot)} kg</b></div><div><small>Arnie produttive</small><b>${prod}</b></div><div><small>Media per arnia</small><b>${prod?n(tot/prod):"0,0"} kg</b></div></div>`;
+  if(!R.length){h+=`<p class="muted small" style="margin:0">Nessun raccolto registrato nel ${ui.anno}. Quando ne registri uno, qui vedi chili per apiario, per tipo di miele e la classifica delle arnie.</p></section>`;}
+  else{
+    const byAp=aps.map(a=>{const kg=R.filter(r=>r.apiario===a.id).reduce((s,r)=>s+r.kg,0);return{a,kg,med:kg/a.nArnie}}).filter(x=>x.kg>0).sort((x,y)=>y.kg-x.kg);
+    const mx=Math.max(...byAp.map(x=>x.kg));
+    h+=`<div class="tbl-wrap"><table><thead><tr><th>Apiario</th><th></th><th style="text-align:right">kg</th><th style="text-align:right">kg/arnia</th></tr></thead><tbody>
+      ${byAp.map(x=>`<tr><td>${esc(x.a.nome)}</td><td style="width:30%"><div class="meter"><i style="width:${x.kg/mx*100}%"></i></div></td><td class="n">${n(x.kg)}</td><td class="n">${n(x.med)}</td></tr>`).join("")}</tbody></table></div>`;
+    const byT={};R.forEach(r=>byT[r.tipo]=(byT[r.tipo]||0)+r.kg);
+    h+=`<div class="legend">${Object.entries(byT).sort((a,b)=>b[1]-a[1]).map(([t,k])=>`<span class="pill">${esc(t)} · ${n(k)} kg</span>`).join("")}</div>`;
+    const rank=Object.entries(perHive).map(([k,kg])=>{const[apid,num]=k.split("#");const a=D.apiari.find(x=>x.id===apid);return{nome:a?a.nome:"Apiario eliminato",num,kg}}).sort((a,b)=>b.kg-a.kg);
+    const show=rank.length>10?[...rank.slice(0,5),null,...rank.slice(-5)]:rank;
+    h+=`<h3>Classifica arnie</h3><div class="tbl-wrap"><table><thead><tr><th>Arnia</th><th>Apiario</th><th style="text-align:right">kg</th></tr></thead><tbody>
+      ${show.map(x=>x?`<tr><td class="n" style="text-align:left">n. ${x.num}</td><td>${esc(x.nome)}</td><td class="n">${n(x.kg)}</td></tr>`:`<tr><td colspan="3" class="muted small">… ${rank.length-10} arnie intermedie …</td></tr>`).join("")}</tbody></table></div>
+      <p class="small muted" style="margin:0">In cima le arnie più produttive, in fondo quelle da tenere d'occhio.</p></section>`;
+  }
+  const list=[...D.raccolti].sort((a,b)=>b.data.localeCompare(a.data)).slice(0,40);
+  if(list.length){
+    h+=`<section class="card"><h3>Ultimi raccolti</h3><ul class="log">${list.map(r=>{const a=D.apiari.find(x=>x.id===r.apiario);
+      return `<li><span class="d">${fmtD(r.data)}</span><span class="t"><b>${n(r.kg)} kg</b> ${esc(r.tipo)}<br><span class="small muted">${esc(a?a.nome:"Apiario eliminato")} · arnie ${r.arnie.length===(a&&a.nArnie)?"tutte":r.arnie.join(", ")}</span></span><button class="btn danger sm" data-act="delRac" data-id="${r.id}">Elimina</button></li>`}).join("")}</ul></section>`;
+  }
+  return h;
+}
+
+/* ---------- sezione VASETTI ---------- */
+function viewVasetti(){
+  const V=D.vasetti;
+  const posizioni=[...new Set(V.map(v=>v.pos).filter(Boolean))].sort();
+  let h=`<h2>Vasetti in magazzino</h2>`;
+  const tot=V.reduce((s,v)=>s+v.q,0), kg=V.reduce((s,v)=>s+v.q*v.g/1000,0);
+  if(V.length){
+    const byT={};V.forEach(v=>{byT[v.tipo]=byT[v.tipo]||{q:0,kg:0};byT[v.tipo].q+=v.q;byT[v.tipo].kg+=v.q*v.g/1000});
+    h+=`<section class="card"><div class="stats"><div><small>Vasetti</small><b>${tot}</b></div><div><small>Miele invasettato</small><b>${n(kg)} kg</b></div><div><small>Posizioni</small><b>${posizioni.length}</b></div></div>
+      <div class="legend">${Object.entries(byT).sort((a,b)=>b[1].q-a[1].q).map(([t,x])=>`<span class="pill">${esc(t)} · ${x.q} vasetti</span>`).join("")}</div></section>`;
+  }
+  h+=`<form class="card" id="vasForm"><h3>Aggiungi vasetti</h3>
+    <div class="grid3"><label><span>Tipo di miele</span><input id="vTipo" list="tipiList" required placeholder="Acacia"></label>
+    <label><span>Formato</span><select id="vG"><option value="125">125 g</option><option value="250">250 g</option><option value="500" selected>500 g</option><option value="1000">1 kg</option></select></label>
+    <label class="w"><span>Quantità</span><input id="vQ" type="number" min="1" required value="12"></label></div>
+    <label><span>Dove sono stipati</span><input id="vPos" list="posList" required placeholder="es. Cantina, scaffale 2"></label>
+    <datalist id="posList">${posizioni.map(p=>`<option value="${esc(p)}">`).join("")}</datalist>
+    <button class="btn honey" type="submit">Aggiungi</button><p class="small muted" style="margin:0">Se esiste già un lotto con stesso miele, formato e posizione, la quantità viene sommata.</p></form>`;
+  if(!V.length) return h+`<div class="empty"><b>Magazzino vuoto</b>Registra i vasetti con tipo di miele, formato e posizione. Poi usa + e − per aggiornare le quantità quando vendi o invasetti.</div>`;
+  if(posizioni.length>1) h+=`<label><span>Filtra per posizione</span><select id="posF"><option value="">Tutte le posizioni</option>${posizioni.map(p=>`<option${p===ui.posF?" selected":""}>${esc(p)}</option>`).join("")}</select></label>`;
+  posizioni.filter(p=>!ui.posF||p===ui.posF).forEach(p=>{
+    const L=V.filter(v=>v.pos===p).sort((a,b)=>a.tipo.localeCompare(b.tipo)||a.g-b.g);
+    h+=`<section class="card"><div class="row"><h3>${esc(p)}</h3><span class="pill">${L.reduce((s,v)=>s+v.q,0)} vasetti</span></div><div>
+      ${L.map(v=>`<div class="jar"><div><b>${esc(v.tipo)}</b> <span class="muted">· ${v.g>=1000?"1 kg":v.g+" g"}</span>${v.q===0?' <span class="pill">esaurito</span>':""}<br>
+        <button class="btn danger sm" style="margin-top:6px" data-act="delVas" data-id="${v.id}">Elimina lotto</button></div>
+        <div class="qty"><button aria-label="Togli un vasetto" data-act="q" data-id="${v.id}" data-d="-1">−</button><b>${v.q}</b><button aria-label="Aggiungi un vasetto" data-act="q" data-id="${v.id}" data-d="1">+</button></div></div>`).join("")}
+    </div></section>`;
+  });
+  return h;
+}
+
+/* ---------- render ---------- */
+function render(){
+  document.querySelectorAll(".tabs button").forEach(b=>b.setAttribute("aria-selected",b.dataset.tab===ui.tab));
+  const tipi=[...new Set(TIPI.concat(D.raccolti.map(r=>r.tipo),D.vasetti.map(v=>v.tipo)))];
+  $("main").innerHTML=(ui.tab==="arnie"?viewArnie():ui.tab==="raccolti"?viewRaccolti():viewVasetti())
+    +`<datalist id="tipiList">${tipi.map(t=>`<option value="${esc(t)}">`).join("")}</datalist>`;
+}
+
+/* ---------- azioni ---------- */
+document.querySelector(".tabs").onclick=e=>{const t=e.target.closest("[data-tab]");if(t){ui.tab=t.dataset.tab;render();window.scrollTo(0,0)}};
+$("main").addEventListener("click",e=>{
+  const b=e.target.closest("[data-act]");if(!b)return;const a=b.dataset.act,id=b.dataset.id;
+  if(a==="addAp"){ui.addAp=true;ui.editAp=null;render();$("apNome").focus()}
+  else if(a==="cancelAp"){ui.addAp=false;ui.editAp=null;render()}
+  else if(a==="editAp"){ui.editAp=id;ui.addAp=false;render();window.scrollTo(0,0)}
+  else if(a==="toggleAp"){ui.openAp=ui.openAp===id?null:id;ui.openHive=null;render()}
+  else if(a==="hive"){const k=+b.dataset.n;ui.openHive=ui.openHive===k?null:k;render()}
+  else if(a==="delAp"){if(!armed(b))return;Store.del("apiari",id);D.visite.filter(v=>v.apiario===id).forEach(v=>Store.del("visite",v.id));ui.openAp=null;toast("Apiario eliminato")}
+  else if(a==="delVis"){if(!armed(b))return;Store.del("visite",id)}
+  else if(a==="delRac"){if(!armed(b))return;Store.del("raccolti",id)}
+  else if(a==="delVas"){if(!armed(b))return;Store.del("vasetti",id)}
+  else if(a==="allHives"){document.querySelectorAll(".hchk").forEach(c=>c.checked=b.dataset.v==="1")}
+  else if(a==="q"){const v=D.vasetti.find(x=>x.id===id);if(!v)return;const q=Math.max(0,v.q+(+b.dataset.d));if(q!==v.q)Store.put("vasetti",{...v,q})}
+  else if(a==="demo")demo();
+});
+$("main").addEventListener("change",e=>{
+  if(e.target.id==="rAp"){ui.rAp=e.target.value;const keep={d:$("rData").value,t:$("rTipo").value,k:$("rKg").value};render();$("rData").value=keep.d;$("rTipo").value=keep.t;$("rKg").value=keep.k}
+  if(e.target.id==="anno"){ui.anno=e.target.value;render()}
+  if(e.target.id==="posF"){ui.posF=e.target.value;render()}
+});
+$("main").addEventListener("submit",e=>{
+  e.preventDefault();const f=e.target.id;
+  if(f==="apForm"){
+    const nA=Math.max(1,Math.min(300,parseInt($("apN").value)||1));
+    const old=D.apiari.find(a=>a.id===ui.editAp);
+    Store.put("apiari",{...(old||{}),nome:$("apNome").value.trim(),luogo:$("apLuogo").value.trim(),nArnie:nA});
+    ui.addAp=false;ui.editAp=null;toast(old?"Apiario aggiornato":"Apiario aggiunto");if(!old)render();
+  }
+  if(f==="visForm"){Store.put("visite",{apiario:ui.openAp,arnia:ui.openHive,data:$("visData").value||today(),nota:$("visNota").value.trim()});toast("Visita registrata")}
+  if(f==="visAll"){const a=D.apiari.find(x=>x.id===ui.openAp);const d=$("vaData").value||today(),nt=$("vaNota").value.trim();
+    for(let i=1;i<=a.nArnie;i++)Store.put("visite",{apiario:a.id,arnia:i,data:d,nota:nt});toast(`Visita registrata per ${a.nArnie} arnie`)}
+  if(f==="racForm"){
+    const kg=parseFloat($("rKg").value.replace(",","."));const arnie=[...document.querySelectorAll(".hchk:checked")].map(c=>+c.value);
+    if(!(kg>0)){toast("Inserisci i chili raccolti.");return}
+    if(!arnie.length){toast("Seleziona almeno un'arnia di provenienza.");return}
+    Store.put("raccolti",{data:$("rData").value||today(),tipo:$("rTipo").value.trim(),kg,apiario:ui.rAp,arnie});
+    ui.anno=($("rData").value||today()).slice(0,4);toast("Raccolto registrato")
+  }
+  if(f==="vasForm"){
+    const tipo=$("vTipo").value.trim(),g=+$("vG").value,q=parseInt($("vQ").value)||0,pos=$("vPos").value.trim();
+    if(q<1){toast("Inserisci una quantità.");return}
+    const ex=D.vasetti.find(v=>v.tipo.toLowerCase()===tipo.toLowerCase()&&v.g===g&&v.pos.toLowerCase()===pos.toLowerCase());
+    Store.put("vasetti",ex?{...ex,q:ex.q+q}:{tipo,g,q,pos});toast(ex?`Aggiunti ${q} vasetti al lotto esistente`:"Lotto aggiunto")
+  }
+});
+
+/* dati di esempio, solo su richiesta */
+function demo(){
+  const y=new Date().getFullYear();
+  const a1={id:rid(),nome:"Esempio · Castagneto",luogo:"Collina",nArnie:12},a2={id:rid(),nome:"Esempio · Pianura",luogo:"Campi",nArnie:8};
+  Store.put("apiari",a1);Store.put("apiari",a2);
+  const dd=k=>{const d=new Date();d.setDate(d.getDate()-k);d.setMinutes(d.getMinutes()-d.getTimezoneOffset());return d.toISOString().slice(0,10)};
+  [[1,3,"Regina vista, covata compatta"],[2,3,""],[3,12,"Aggiunto melario"],[5,30,"Famiglia debole, da riunire?"],[7,5,""],[8,16,"Trattamento"]].forEach(([h,k,t])=>Store.put("visite",{apiario:a1.id,arnia:h,data:dd(k),nota:t}));
+  [[1,9,""],[2,9,""],[4,25,"Sciamatura sospetta"]].forEach(([h,k,t])=>Store.put("visite",{apiario:a2.id,arnia:h,data:dd(k),nota:t}));
+  Store.put("raccolti",{data:y+"-05-20",tipo:"Acacia",kg:96,apiario:a2.id,arnie:[1,2,3,4,5,6,7,8]});
+  Store.put("raccolti",{data:y+"-07-10",tipo:"Castagno",kg:140,apiario:a1.id,arnie:[1,2,3,4,5,6,7,8,9,10]});
+  Store.put("raccolti",{data:y+"-07-12",tipo:"Castagno",kg:22,apiario:a1.id,arnie:[3,7]});
+  Store.put("vasetti",{tipo:"Acacia",g:500,q:48,pos:"Cantina · scaffale 1"});
+  Store.put("vasetti",{tipo:"Castagno",g:500,q:60,pos:"Cantina · scaffale 2"});
+  Store.put("vasetti",{tipo:"Castagno",g:250,q:24,pos:"Negozio"});
+  ui.openAp=a1.id;render();toast("Dati di esempio caricati: puoi eliminarli quando vuoi");
+}
+render();Store.init();
+</script>
+
+<script>if("serviceWorker" in navigator){navigator.serviceWorker.register("sw.js").catch(()=>{});}</script>
+</body></html>
