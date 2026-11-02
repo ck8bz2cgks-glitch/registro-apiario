@@ -1,9 +1,9 @@
 {
-  "contatto": "Scrivi qui il tuo nome e numero di telefono",
+  "contatto": "per info Davide: 3455811881",
   "clienti": {
     "APE-PVE3-JY": {
       "nome": "Io (titolare)",
-      "stato": "sospeso"
+      "stato": "attivo"
     },
     "APE-FPG5-BV": {
       "nome": "Cliente 1",
