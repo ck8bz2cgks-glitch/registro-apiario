@@ -1,0 +1,13 @@
+{
+  "contatto": "Scrivi qui il tuo nome e numero di telefono",
+  "clienti": {
+    "APE-PVE3-JY": {
+      "nome": "Io (titolare)",
+      "stato": "attivo"
+    },
+    "APE-FPG5-BV": {
+      "nome": "Cliente 1",
+      "stato": "attivo"
+    }
+  }
+}

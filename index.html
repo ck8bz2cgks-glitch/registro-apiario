@@ -140,13 +140,33 @@ td.n{font-family:var(--f-num);text-align:right;white-space:nowrap}
 .till span{font-size:13px;opacity:.85}
 .closebtn{width:100%;padding:16px;font-size:19px}
 .recap td{font-size:15px}
+.gear{background:none;border:1px solid var(--line);border-radius:6px;color:var(--fg);font-size:17px;width:34px;height:30px;cursor:pointer}
+.licbar{margin-top:8px;border-radius:6px;padding:8px 10px;font-size:14px;background:color-mix(in srgb,var(--danger) 14%,var(--surface));color:var(--fg);border:1px solid var(--danger)}
+.licbar.warn{background:color-mix(in srgb,var(--honey) 16%,var(--surface));border-color:var(--honey)}
+.overlay{position:fixed;inset:0;z-index:30;background:color-mix(in srgb,var(--bg) 92%,transparent);display:flex;align-items:flex-start;justify-content:center;overflow:auto;padding:calc(24px + env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) 24px max(16px,env(safe-area-inset-left,0px))}
+.overlay .card{max-width:460px;width:100%}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:14px}
+.kv span:nth-child(odd){color:var(--muted)}
+.code{font-family:var(--f-num);letter-spacing:.06em;text-transform:uppercase}
+.voice{display:flex;flex-direction:column;gap:8px;border:2px solid var(--honey);border-radius:10px;padding:12px;background:color-mix(in srgb,var(--honey) 10%,var(--surface))}
+.vbtn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;min-height:64px;border:0;border-radius:10px;background:var(--honey);color:var(--honey-ink);font-family:var(--f-display);font-weight:800;font-size:20px;cursor:pointer}
+.vbtn.on{background:var(--danger);color:#fff}
+.vbtn svg{width:26px;height:26px}
+.vlive{font-size:15px;min-height:1.4em}
+.vlive i{color:var(--muted)}
+.vhelp{font-size:13px;color:var(--muted);margin:0}
+.vhelp b{color:var(--fg)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.55}}
+.vbtn.on .dot{width:12px;height:12px;border-radius:50%;background:#fff;animation:pulse 1.2s infinite}
+@media (prefers-reduced-motion:reduce){.vbtn.on .dot{animation:none}}
 @media (max-width:480px){.grid3{grid-template-columns:1fr 1fr}.grid3 .w{grid-column:1/-1}.stats b{font-size:16px}}
 </style>
 <style>:root{padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}[hidden]{display:none!important}</style>
 </head><body>
 
 <header class="top"><div class="top-in">
-  <div class="brand"><h1>Registro apiario</h1><span class="save" id="save">Caricamento…</span></div>
+  <div class="brand"><h1>Registro apiario</h1><span style="display:flex;align-items:center;gap:8px"><span class="save" id="save">Caricamento…</span><button type="button" class="gear" id="gear" aria-label="Licenza e dati">⚙︎</button></span></div>
+  <div class="licbar" id="licbar" hidden></div>
   <nav class="tabs" role="tablist">
     <button role="tab" id="t-arnie" aria-selected="true" data-tab="arnie">Arnie</button>
     <button role="tab" id="t-raccolti" aria-selected="false" data-tab="raccolti">Raccolti</button>
@@ -156,6 +176,8 @@ td.n{font-family:var(--f-num);text-align:right;white-space:nowrap}
 </div></header>
 <main class="wrap" id="main"></main>
 <div class="toast" id="toast" hidden></div>
+<div class="overlay" id="licov" hidden></div>
+<input type="file" id="impFile" accept="application/json,.json" hidden>
 
 <script>
 /* ---------- dati ---------- */
@@ -220,11 +242,13 @@ const Store={mode:"local",cols:{},
   },
   persist(k){try{localStorage.setItem("api_"+k,JSON.stringify(D[k]))}catch(e){toast("Non riesco a salvare sul dispositivo.")}},
   async put(k,obj){
+    if(licLocked()){licUI();toast("Abbonamento non attivo: puoi consultare ed esportare i dati, non inserirne di nuovi.");return}
     obj.id=obj.id||rid();
     if(this.mode==="db"){const {id,...body}=obj;try{await this.cols[k].doc(id).set(body)}catch(e){toast(e.code==="quota_exceeded"?"Spazio dati esaurito.":"Salvataggio non riuscito, riprova.")}}
     else{const i=D[k].findIndex(x=>x.id===obj.id);if(i>=0)D[k][i]=obj;else D[k].push(obj);this.persist(k);render();}
   },
   async del(k,id){
+    if(licLocked()){licUI();toast("Abbonamento non attivo: i dati non si possono modificare.");return}
     if(this.mode==="db"){try{await this.cols[k].doc(id).delete()}catch(e){toast("Eliminazione non riuscita.")}}
     else{D[k]=D[k].filter(x=>x.id!==id);this.persist(k);render();}
   }
@@ -234,6 +258,160 @@ let tt;function toast(t){const el=$("toast");el.textContent=t;el.hidden=false;cl
 
 /* conferma in pagina: primo tocco arma il pulsante, secondo conferma */
 function armed(btn){if(btn.classList.contains("arm"))return true;btn.classList.add("arm");const t=btn.textContent;btn.textContent="Tocca per confermare";setTimeout(()=>{btn.classList.remove("arm");btn.textContent=t},3500);return false}
+
+
+
+/* ---------- licenza (solo versione pubblicata su GitHub Pages) ---------- */
+const LIC={on:/github\.io$/i.test(location.hostname),grace:14,warn:7,state:null,checking:false,contatto:""};
+function licLoad(){try{return JSON.parse(localStorage.getItem("api_lic")||"null")}catch(e){return null}}
+function licSave(x){try{localStorage.setItem("api_lic",JSON.stringify(x))}catch(e){}}
+const daysFrom=t=>Math.floor((Date.now()-t)/864e5);
+/* stato: ok | warn | locked | nocode */
+function licStatus(){
+  if(!LIC.on)return{st:"ok"};
+  const L=licLoad();if(!L||!L.code)return{st:"nocode"};
+  if(L.stato==="sospeso")return{st:"locked",why:"sospeso",L};
+  if(L.scadenza&&L.scadenza<today())return{st:"locked",why:"scaduto",L};
+  const d=L.lastOk?daysFrom(L.lastOk):999;
+  if(d>LIC.grace)return{st:"locked",why:"offline",L,d};
+  if(d>LIC.warn)return{st:"warn",L,d};
+  return{st:"ok",L};
+}
+const licLocked=()=>{const s=licStatus().st;return s==="locked"||s==="nocode"};
+async function licCheck(code,interactive){
+  if(!LIC.on)return;LIC.checking=true;
+  try{
+    const r=await fetch("licenze.json?t="+Date.now(),{cache:"no-store"});
+    if(!r.ok)throw new Error("http");
+    const j=await r.json();LIC.contatto=j.contatto||"";
+    const c=(code||"").trim().toUpperCase();const cl=(j.clienti||{})[c];
+    if(!cl){if(interactive)return{err:"Codice non valido. Controlla di averlo scritto giusto."};
+      const L=licLoad();if(L){L.stato="sospeso";L.contatto=LIC.contatto;licSave(L)}return{}}
+    const L={code:c,nome:cl.nome||"",stato:cl.stato==="attivo"?"attivo":"sospeso",scadenza:cl.scadenza||"",lastOk:Date.now(),contatto:LIC.contatto};
+    licSave(L);return{ok:true,L};
+  }catch(e){return{offline:true}}
+  finally{LIC.checking=false;licUI()}
+}
+function licUI(){
+  if(!LIC.on){$("licbar").hidden=true;return}
+  const s=licStatus(),bar=$("licbar"),L=s.L||licLoad()||{};const cont=L.contatto||LIC.contatto;
+  if(s.st==="nocode"){showActivation();bar.hidden=true;return}
+  if(!$("licov").dataset.panel)$("licov").hidden=true;
+  if(s.st==="locked"){bar.className="licbar";bar.hidden=false;
+    bar.innerHTML=(s.why==="offline"?`<b>Licenza da verificare.</b> L'app non si collega a internet da ${s.d} giorni: collegati per continuare a inserire dati.`:`<b>Abbonamento ${s.why==="scaduto"?"scaduto":"sospeso"}.</b> Puoi consultare ed esportare i tuoi dati, ma non inserirne di nuovi.`)+(cont?` Contatto: ${esc(cont)}`:"");}
+  else if(s.st==="warn"){bar.className="licbar warn";bar.hidden=false;bar.innerHTML=`Collegati a internet entro ${LIC.grace-s.d} giorni per verificare la licenza.`}
+  else bar.hidden=true;
+  try{document.documentElement.style.setProperty("--hh",document.querySelector(".top").offsetHeight+"px")}catch(e){}
+}
+function showActivation(msg){
+  const ov=$("licov");ov.hidden=false;ov.dataset.panel="";
+  ov.innerHTML=`<form class="card" id="actForm"><h2>Attiva il Registro apiario</h2>
+    <p style="margin:0">Inserisci il codice cliente che hai ricevuto. Serve internet solo per l'attivazione: poi l'app funziona anche offline.</p>
+    <label><span>Codice cliente</span><input id="actCode" class="code" autocomplete="off" autocapitalize="characters" placeholder="es. APE-7K3M-Q9" required></label>
+    <p id="actMsg" class="small" style="margin:0;color:var(--danger)">${msg?esc(msg):""}</p>
+    <button class="btn honey" type="submit">Attiva</button>
+    ${D.apiari.length||D.visite.length||D.movimenti.length?`<button class="btn ghost" type="button" data-lic="export">Esporta i miei dati</button>`:""}</form>`;
+  setTimeout(()=>$("actCode")&&$("actCode").focus(),50);
+}
+function showPanel(){
+  const ov=$("licov");ov.hidden=false;ov.dataset.panel="1";const L=licLoad()||{};const s=licStatus();
+  const stTxt=!LIC.on?"non richiesta in questa versione":s.st==="ok"?"attiva":s.st==="warn"?"attiva, da verificare presto":s.st==="nocode"?"non attivata":s.why==="offline"?"da verificare (serve internet)":s.why==="scaduto"?"scaduta":"sospesa";
+  ov.innerHTML=`<div class="card"><div class="row"><h2>Licenza e dati</h2><button type="button" class="btn ghost sm" data-lic="close">Chiudi</button></div>
+    ${LIC.on?`<div class="kv"><span>Codice</span><span class="code">${esc(L.code||"—")}</span><span>Intestata a</span><span>${esc(L.nome||"—")}</span><span>Stato</span><span>${stTxt}</span>${L.scadenza?`<span>Scadenza</span><span>${fmtD(L.scadenza)}</span>`:""}<span>Ultimo controllo</span><span>${L.lastOk?new Date(L.lastOk).toLocaleString("it-IT"):"—"}</span></div>
+    <div class="row" style="justify-content:flex-start"><button type="button" class="btn ghost sm" data-lic="check">${LIC.checking?"Verifico…":"Verifica ora"}</button><button type="button" class="btn ghost sm" data-lic="change">Cambia codice</button></div>`:`<p class="small muted" style="margin:0">Licenza ${stTxt}.</p>`}
+    <h3>Backup dei dati</h3>
+    <p class="small muted" style="margin:0">Il backup contiene apiari, visite, raccolti, magazzino, vendite e listino. Serve per conservarli o per passarli su un altro telefono. L'esportazione è sempre possibile, anche ad abbonamento sospeso.</p>
+    <div class="row" style="justify-content:flex-start"><button type="button" class="btn honey sm" data-lic="export">Esporta backup</button>${licLocked()?"":`<button type="button" class="btn ghost sm" data-lic="import">Importa backup</button>`}</div></div>`;
+}
+async function exportData(){
+  const out={app:"registro-apiario",versione:1,esportato:new Date().toISOString(),dati:{}};KINDS.forEach(k=>out.dati[k]=D[k]);
+  const txt=JSON.stringify(out,null,1),name="registro-apiario-"+today()+".json";
+  if(window.claude&&window.claude.use){try{const dl=await claude.use("downloads");if(dl){await dl.save({filename:name,data:txt});toast("Backup salvato");return}}catch(e){if(e&&e.code==="declined")return}}
+  try{const f=new File([txt],name,{type:"application/json"});if(navigator.canShare&&navigator.canShare({files:[f]})){await navigator.share({files:[f],title:name});return}}catch(e){if(e&&e.name==="AbortError")return}
+  const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([txt],{type:"application/json"}));a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},2000);toast("Backup scaricato");
+}
+async function importData(file){
+  try{const j=JSON.parse(await file.text());if(j.app!=="registro-apiario"||!j.dati)throw new Error();
+    let n=0;for(const k of KINDS){for(const doc of (j.dati[k]||[])){if(!D[k].some(x=>x.id===doc.id)){await Store.put(k,{...doc});n++}}}
+    toast(n?`Importati ${n} elementi dal backup`:"Niente di nuovo da importare");$("licov").hidden=true;$("licov").dataset.panel="";render()}
+  catch(e){toast("Il file non è un backup del Registro apiario.")}
+}
+document.addEventListener("click",async e=>{
+  const b=e.target.closest("[data-lic]");if(!b)return;const a=b.dataset.lic;
+  if(a==="close"){$("licov").hidden=true;$("licov").dataset.panel="";licUI()}
+  if(a==="export")exportData();
+  if(a==="import")$("impFile").click();
+  if(a==="check"){b.textContent="Verifico…";const L=licLoad();const r=await licCheck(L&&L.code);toast(r&&r.offline?"Nessuna connessione: riprova più tardi":"Licenza verificata");showPanel()}
+  if(a==="change"){showActivation()}
+});
+$("impFile").addEventListener("change",e=>{const f=e.target.files&&e.target.files[0];if(f)importData(f);e.target.value=""});
+$("gear").onclick=showPanel;
+document.addEventListener("submit",async e=>{if(e.target.id!=="actForm")return;e.preventDefault();
+  const code=$("actCode").value;$("actMsg").textContent="Verifico il codice…";const r=await licCheck(code,true);
+  if(r&&r.ok){$("licov").hidden=true;$("licov").dataset.panel="";toast(r.L.stato==="attivo"?"App attivata"+(r.L.nome?" per "+r.L.nome:""):"Codice riconosciuto, ma l'abbonamento è sospeso");licUI();render()}
+  else $("actMsg").textContent=r&&r.offline?"Serve internet per attivare l'app. Collegati e riprova.":r.err});
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"&&LIC.on){const L=licLoad();if(L&&L.code)licCheck(L.code).then(licUI)}});
+
+/* ---------- dettatura vocale ---------- */
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+const V={on:false,rec:null,live:"",msg:"",err:"",restart:0};
+const isStandalone=()=>{try{return navigator.standalone===true||matchMedia("(display-mode: standalone)").matches}catch(e){return false}};
+function voiceBox(){
+  const mic='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>';
+  if(!SR)return `<div class="voice"><p class="vhelp"><b>Dettatura non disponibile qui.</b> Su iPhone e iPad usa il Controllo vocale di iOS (Impostazioni → Accessibilità → Controllo vocale) e di' per esempio «Tocca Scorta 4», «Tocca Regina sì», «Tocca Registra visita». Funziona anche senza internet.</p></div>`;
+  return `<div class="voice"><button type="button" class="vbtn ${V.on?"on":""}" data-act="voice" aria-pressed="${V.on}">${V.on?'<span class="dot"></span>Sto ascoltando · tocca per fermare':mic+"Detta la visita"}</button>
+    <div class="vlive" role="status" aria-live="polite">${V.err?`<span style="color:var(--danger)">${esc(V.err)}</span>`:V.live?`«${esc(V.live)}»`:V.msg?esc(V.msg):'<i>Di\' per esempio: «scorta quattro, covata tre, polline due, regina sì, nota aggiunto melario, salva». Poi «arnia cinque» per passare alla successiva.</i>'}</div>
+    ${isStandalone()?'<p class="vhelp">Dall\'icona sulla schermata Home la dettatura di iOS a volte non parte. Se succede, usa il Controllo vocale di iOS: «Tocca Scorta 4», «Tocca Registra visita».</p>':""}</div>`;
+}
+const NUM={uno:1,un:1,una:1,due:2,tre:3,quattro:4,cinque:5,sei:6,sette:7,otto:8,nove:9,dieci:10,undici:11,dodici:12,tredici:13,quattordici:14,quindici:15,sedici:16,diciassette:17,diciotto:18,diciannove:19,venti:20};
+function toNum(w){if(w==null)return null;if(/^\d+$/.test(w))return +w;return NUM[w]??null}
+/* trasforma una frase in campi: restituisce {arnia, scorta, covata, polline, regina, nota, salva, annulla} */
+function parseVoice(txt){
+  const t=txt.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[,.;:!?]/g," ").replace(/\s+/g," ").trim();
+  const out={};const w=t.split(" ");
+  // la nota prende tutto quello che segue la parola "nota" fino a "salva"
+  const ni=w.findIndex(x=>x==="nota"||x==="note");let head=w,notaW=null;
+  if(ni>=0){head=w.slice(0,ni);notaW=w.slice(ni+1);const si=notaW.findIndex(x=>/^(salva|registra)$/.test(x));if(si>=0){out.salva=true;notaW=notaW.slice(0,si)}out.nota=notaW.join(" ").trim()}
+  for(let i=0;i<head.length;i++){const x=head[i],nx=head[i+1],nx2=head[i+2];
+    const val=()=>{let v=toNum(nx);if(v==null&&nx==="livello")v=toNum(nx2);return v};
+    if(/^arni[ae]$/.test(x)&&toNum(nx)!=null)out.arnia=toNum(nx);
+    if(/^scort[ae]$/.test(x)){const v=val();if(v>=1&&v<=5)out.scorta=v}
+    if(/^covat[ae]$/.test(x)){const v=val();if(v>=1&&v<=5)out.covata=v}
+    if(x==="polline"||x==="pollini"){const v=val();if(v>=1&&v<=5)out.polline=v}
+    if(x==="regina"){const r=head.slice(i+1,i+4).join(" ");
+      if(/^(non |no |assente|mancante|persa)/.test(r))out.regina=false;
+      else if(/^(si|vista|avvistata|presente|ok|trovata)/.test(r))out.regina=true}
+    if(/^(salva|registra|conferma)$/.test(x))out.salva=true;
+    if(/^(annulla|cancella)$/.test(x))out.annulla=true}
+  return out;
+}
+function speak(t){try{if(!window.speechSynthesis)return;const u=new SpeechSynthesisUtterance(t);u.lang="it-IT";u.rate=1.05;speechSynthesis.cancel();speechSynthesis.speak(u)}catch(e){}}
+function applyVoice(p){
+  if(p.arnia){const a=D.apiari.find(x=>x.id===ui.openAp);if(a&&p.arnia>=1&&p.arnia<=a.nArnie){ui.openHive=p.arnia;render();speak("Arnia "+p.arnia)}else if(a){speak("L'arnia "+p.arnia+" non esiste")}}
+  if(!$("visForm"))return;
+  ["scorta","covata","polline"].forEach(k=>{if(p[k]){const el=$("v-"+k+"-"+p[k]);if(el)el.checked=true}});
+  if(p.regina!=null){const el=$(p.regina?"v-reg-si":"v-reg-no");if(el)el.checked=true}
+  if(p.nota!=null&&p.nota!=="")$("visNota").value=p.nota;
+  if(p.annulla){$("visForm").reset();$("visData").value=today();speak("Annullato")}
+  if(p.salva){const fd=new FormData($("visForm"));const parts=["scorta","covata","polline"].filter(k=>fd.get(k)).map(k=>LV[k]+" "+fd.get(k));
+    const rg=fd.get("regina");if(rg)parts.push("regina "+(rg==="si"?"sì":"no"));
+    const n=ui.openHive;$("visForm").requestSubmit?$("visForm").requestSubmit():$("visForm").dispatchEvent(new Event("submit",{cancelable:true,bubbles:true}));
+    V.msg="Arnia "+n+" salvata. Di' «arnia» e il numero per passare alla prossima.";speak("Arnia "+n+" salvata. "+parts.join(", "))}
+}
+function voiceStart(){
+  if(!SR)return;V.err="";V.live="";
+  const r=new SR();r.lang="it-IT";r.continuous=true;r.interimResults=true;
+  let done=0;
+  r.onresult=e=>{let interim="";for(let i=e.resultIndex;i<e.results.length;i++){const res=e.results[i];
+      if(res.isFinal){const txt=res[0].transcript;V.live="";applyVoice(parseVoice(txt))}else interim+=res[0].transcript}
+    V.live=interim;const lv=document.querySelector(".vlive");if(lv)lv.textContent=interim?"«"+interim+"»":V.msg};
+  r.onerror=e=>{const m={"not-allowed":"Permesso microfono negato: consentilo nelle impostazioni di Safari.","service-not-allowed":"La dettatura non è disponibile in questa modalità. Prova ad aprire l'app in Safari oppure usa il Controllo vocale di iOS.","network":"La dettatura ha bisogno di internet in questo momento. Usa il Controllo vocale di iOS, che funziona offline.","no-speech":"","aborted":""}[e.error];
+    if(m===undefined)V.err="Dettatura interrotta ("+e.error+"). Tocca di nuovo per riprovare.";else if(m)V.err=m;
+    if(m){V.on=false;render()}};
+  r.onend=()=>{if(V.on&&V.restart<30){V.restart++;try{r.start();return}catch(e){}}V.on=false;render()};
+  try{r.start();V.rec=r;V.on=true;V.restart=0;render()}catch(e){V.err="Non riesco ad avviare la dettatura. Usa il Controllo vocale di iOS.";render()}
+}
+function voiceStop(){V.on=false;try{V.rec&&V.rec.stop()}catch(e){}V.rec=null;render()}
 
 /* ---------- sezione ARNIE ---------- */
 const LV={scorta:"Scorta",covata:"Covata",polline:"Polline"};
@@ -271,9 +449,10 @@ function viewArnie(){
       if(ui.openHive){
         const hv=hiveVisits(a.id,ui.openHive);
         h+=`<div class="panel"><h3>Arnia ${ui.openHive}</h3>
+          ${voiceBox()}
           <form id="visForm" style="display:flex;flex-direction:column;gap:10px">
-          ${["scorta","covata","polline"].map(k=>`<div class="lvl" role="radiogroup" aria-label="${LV[k]} da 1 a 5"><span>${LV[k]}</span><div class="seg5">${[1,2,3,4,5].map(i=>`<label><input type="radio" name="${k}" value="${i}" id="v-${k}-${i}"><b>${i}</b></label>`).join("")}</div></div>`).join("")}
-          <div class="lvl" role="radiogroup" aria-label="Regina avvistata"><span>Regina avvistata</span><div class="yn"><label><input type="radio" name="regina" value="si" id="v-reg-si"><b>Sì</b></label><label><input type="radio" name="regina" value="no" id="v-reg-no"><b>No</b></label></div></div>
+          ${["scorta","covata","polline"].map(k=>`<div class="lvl" role="radiogroup" aria-label="${LV[k]} da 1 a 5"><span>${LV[k]}</span><div class="seg5">${[1,2,3,4,5].map(i=>`<label><input type="radio" name="${k}" value="${i}" id="v-${k}-${i}" aria-label="${LV[k]} ${i}"><b aria-hidden="true">${i}</b></label>`).join("")}</div></div>`).join("")}
+          <div class="lvl" role="radiogroup" aria-label="Regina avvistata"><span>Regina avvistata</span><div class="yn"><label><input type="radio" name="regina" value="si" id="v-reg-si" aria-label="Regina sì"><b aria-hidden="true">Sì</b></label><label><input type="radio" name="regina" value="no" id="v-reg-no" aria-label="Regina no"><b aria-hidden="true">No</b></label></div></div>
           <div class="grid2"><label><span>Data visita</span><input id="visData" type="date" value="${today()}" required></label>
           <label class="full"><span>Nota (facoltativa)</span><textarea id="visNota" placeholder="es. aggiunto melario, trattamento"></textarea></label></div>
           <p class="small muted" style="margin:0">Livelli da 1 (molto scarso) a 5 (abbondante). Puoi lasciare vuoto quello che non hai controllato.</p>
@@ -417,14 +596,16 @@ function render(){
 }
 
 /* ---------- azioni ---------- */
-document.querySelector(".tabs").onclick=e=>{const t=e.target.closest("[data-tab]");if(t){ui.tab=t.dataset.tab;ui.lastClose=null;render();window.scrollTo(0,0)}};
+document.querySelector(".tabs").onclick=e=>{const t=e.target.closest("[data-tab]");if(t){if(V.on)voiceStop();ui.tab=t.dataset.tab;ui.lastClose=null;render();window.scrollTo(0,0)}};
 $("main").addEventListener("click",e=>{
   const b=e.target.closest("[data-act]");if(!b)return;const a=b.dataset.act,id=b.dataset.id;
+  if(["delAp","delVis","delRac","adj","sell","delMov","closeDay","resetList","migrate","demo"].includes(a)&&licLocked()){licUI();toast("Abbonamento non attivo: puoi consultare ed esportare i dati, non inserirne di nuovi.");return}
   if(a==="addAp"){ui.addAp=true;ui.editAp=null;render();$("apNome").focus()}
   else if(a==="cancelAp"){ui.addAp=false;ui.editAp=null;render()}
   else if(a==="editAp"){ui.editAp=id;ui.addAp=false;render();window.scrollTo(0,0)}
   else if(a==="toggleAp"){ui.openAp=ui.openAp===id?null:id;ui.openHive=null;render()}
-  else if(a==="hive"){const k=+b.dataset.n;ui.openHive=ui.openHive===k?null:k;render()}
+  else if(a==="hive"){const k=+b.dataset.n;ui.openHive=ui.openHive===k?null:k;if(!ui.openHive&&V.on)voiceStop();render()}
+  else if(a==="voice"){V.on?voiceStop():voiceStart()}
   else if(a==="delAp"){if(!armed(b))return;Store.del("apiari",id);D.visite.filter(v=>v.apiario===id).forEach(v=>Store.del("visite",v.id));ui.openAp=null;toast("Apiario eliminato")}
   else if(a==="delVis"){if(!armed(b))return;Store.del("visite",id)}
   else if(a==="delRac"){if(!armed(b))return;Store.del("raccolti",id)}
@@ -452,6 +633,7 @@ $("main").addEventListener("change",e=>{
 });
 $("main").addEventListener("submit",e=>{
   e.preventDefault();const f=e.target.id;
+  if(licLocked()){licUI();toast("Abbonamento non attivo: puoi consultare ed esportare i dati, non inserirne di nuovi.");return}
   if(f==="apForm"){
     const nA=Math.max(1,Math.min(300,parseInt($("apN").value)||1));
     const old=D.apiari.find(a=>a.id===ui.editAp);
@@ -500,6 +682,7 @@ function demo(){
   ui.openAp=a1.id;render();toast("Dati di esempio caricati: puoi eliminarli quando vuoi");
 }
 render();Store.init();
+if(LIC.on){licUI();const L0=licLoad();if(L0&&L0.code)licCheck(L0.code).then(licUI)}
 </script>
 
 <script>if("serviceWorker" in navigator){navigator.serviceWorker.register("sw.js").catch(()=>{});}</script>

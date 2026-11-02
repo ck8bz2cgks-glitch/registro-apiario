@@ -1,4 +1,4 @@
-const CACHE = "apiario-v2";
+const CACHE = "apiario-v4";
 const FILES = ["./", "index.html", "manifest.json", "icon-180.png", "icon-192.png", "icon-512.png"];
 self.addEventListener("install", e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)));
@@ -11,6 +11,8 @@ self.addEventListener("activate", e => {
 // Prima la rete (così vedi sempre la versione aggiornata), poi la copia salvata se sei offline
 self.addEventListener("fetch", e => {
   if (e.request.method !== "GET") return;
+  // il file delle licenze va sempre letto da internet, mai dalla copia salvata
+  if (e.request.url.includes("licenze.json")) return;
   e.respondWith(
     fetch(e.request).then(r => {
       const copy = r.clone();
